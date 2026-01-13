@@ -28,6 +28,9 @@ jobs:
       - name: Build
         working-directory: frontend/decision-ui
         run: npm run build
+        env:
+          VITE_API_BASE_URL: https://decision-pattern-api-final-project-bdbef3ffgrgjg2c0.germanywestcentral-01.azurewebsites.net
+
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
