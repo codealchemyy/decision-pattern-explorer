@@ -6,19 +6,18 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy =>
+    options.AddPolicy("FrontendDev", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",
-                "https://decision-pattern-ui-final-project-h9cde9cvcgd0dnbk.germanywestcentral-01.azurewebsites.net"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod();
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
 
 var app = builder.Build();
+
+app.UseCors("FrontendDev");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -49,8 +48,11 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-app.MapGet("/ready", () => Results.Ok(new { status = "ready" }));
+app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
+   .WithName("Health");
+
+app.MapGet("/ready", () => Results.Ok(new {status = "ready"}))
+   .WithName("Ready");
 
 app.Run();
 
