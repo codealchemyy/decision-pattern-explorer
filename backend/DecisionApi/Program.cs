@@ -25,6 +25,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseCors("Frontend");
+
 app.UseHttpsRedirection();
 
 var summaries = new[]
