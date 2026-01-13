@@ -1,4 +1,4 @@
-import { useState } from 'react'
+/* import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
@@ -33,3 +33,41 @@ function App() {
 }
 
 export default App
+ */
+
+
+import { useEffect, useState } from "react";
+import "./App.css";
+
+type Health = { status: string };
+
+export default function App() {
+  const [health, setHealth] = useState<Health | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
+
+    fetch(`${baseUrl}/health`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return (await res.json()) as Health;
+      })
+      .then(setHealth)
+      .catch((e) => setError(String(e.message ?? e)));
+  }, []);
+
+  return (
+    <div style={{ padding: 24 }}>
+      <h1>Decision Pattern Explorer</h1>
+
+      <h2>Backend connection</h2>
+
+      {error && <p style={{ color: "crimson" }}>Error: {error}</p>}
+
+      {!error && !health && <p>Checking backend…</p>}
+
+      {health && <p>Backend says: {health.status}</p>}
+    </div>
+  );
+}
