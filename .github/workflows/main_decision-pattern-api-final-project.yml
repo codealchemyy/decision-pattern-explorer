@@ -24,7 +24,7 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        run: dotnet publish backend/DecisionApi/DecisionApi.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: dotnet publish
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
@@ -62,4 +62,5 @@ jobs:
           app-name: 'decision-pattern-api-final-project'
           slot-name: 'Production'
           package: .
+
           
