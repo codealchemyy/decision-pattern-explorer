@@ -33,6 +33,12 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
+app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
+   .WithName("Health");
+
+app.MapGet("ready", () => Results.Ok(new {status = "ready"}))
+   .WithName("Ready");
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
