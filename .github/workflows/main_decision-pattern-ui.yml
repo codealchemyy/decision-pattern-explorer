@@ -1,0 +1,37 @@
+name: Deploy UI to Azure Web App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "frontend/decision-ui/**"
+      - ".github/workflows/main_decision-pattern-ui.yml"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        working-directory: frontend/decision-ui
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend/decision-ui
+        run: npm run build
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: decision-pattern-ui-final-project
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_UI }}
+          package: frontend/decision-ui/dist
