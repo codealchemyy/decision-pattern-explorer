@@ -14,3 +14,15 @@ dist/
 
 # OS
 .DS_Store
+
+# SQLite local database
+data/
+*.db
+
+# Build outputs
+bin/
+obj/
+
+# User secrets / local settings (keep appsettings.json tracked)
+appsettings.*.local.json
+

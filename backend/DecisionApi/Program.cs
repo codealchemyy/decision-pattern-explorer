@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using DecisionApi.Database;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -16,6 +19,18 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
+
+// --- Database (SQLite) ---
+var dbFolder = Path.Combine(builder.Environment.ContentRootPath, "data");
+Directory.CreateDirectory(dbFolder);
+
+var dbPath = Path.Combine(dbFolder, "app.db");
+var connectionString = $"Data Source={dbPath}";
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(connectionString)
+);
 
 
 
@@ -54,8 +69,15 @@ app.MapGet("/weatherforecast", () =>
 app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
    .WithName("Health");
 
-app.MapGet("/ready", () => Results.Ok(new {status = "ready"}))
-   .WithName("Ready");
+app.MapGet("/ready", async (AppDbContext db) =>
+{
+    var canConnect = await db.Database.CanConnectAsync();
+    return canConnect
+        ? Results.Ok(new { status = "ready" })
+        : Results.Problem(title: "Database not reachable", statusCode: 503);
+})
+.WithName("Ready");
+
 
 app.Run();
 
