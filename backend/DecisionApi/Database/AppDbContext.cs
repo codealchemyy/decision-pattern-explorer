@@ -13,5 +13,6 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Decision> Decisions => Set<Decision>();
     public DbSet<CheckIn> CheckIns => Set<CheckIn>();
+    public DbSet<CommunityPost> CommunityPosts => Set<CommunityPost>();
 
 }
