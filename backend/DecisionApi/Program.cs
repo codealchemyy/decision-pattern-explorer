@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using DecisionApi.Database;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -16,6 +19,18 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
+
+// --- Database (SQLite) ---
+var dbFolder = Path.Combine(builder.Environment.ContentRootPath, "data");
+Directory.CreateDirectory(dbFolder);
+
+var dbPath = Path.Combine(dbFolder, "app.db");
+var connectionString = $"Data Source={dbPath}";
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(connectionString)
+);
 
 
 
