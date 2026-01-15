@@ -12,5 +12,6 @@ public class AppDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Decision> Decisions => Set<Decision>();
+    public DbSet<CheckIn> CheckIns => Set<CheckIn>();
 
 }
