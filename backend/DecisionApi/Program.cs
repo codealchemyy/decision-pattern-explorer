@@ -30,11 +30,19 @@ var connectionString = $"Data Source={dbPath}";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString)
+           .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
 
-
 var app = builder.Build();
+
+var seedEnabled = app.Environment.IsDevelopment()
+                  && builder.Configuration.GetValue<bool>("SeedData", true);
+if (seedEnabled)
+{
+    await SeedData.EnsureSeededAsync(app.Services);
+}
+
 
 if (app.Environment.IsDevelopment())
 {
