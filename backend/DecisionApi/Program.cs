@@ -21,12 +21,21 @@ builder.Services.AddCors(options =>
 });
 
 
-// --- Database (SQLite) ---
-var dbFolder = Path.Combine(builder.Environment.ContentRootPath, "data");
-Directory.CreateDirectory(dbFolder);
 
-var dbPath = Path.Combine(dbFolder, "app.db");
-var connectionString = $"Data Source={dbPath}";
+// --- Database (SQLite) ---
+var sqlitePath =
+    builder.Configuration["Sqlite:Path"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "data", "app.db");
+
+// 3) Ensure the folder exists (important for /home/data on Azure Linux)
+var sqliteDir = Path.GetDirectoryName(sqlitePath);
+if (!string.IsNullOrWhiteSpace(sqliteDir))
+{
+    Directory.CreateDirectory(sqliteDir);
+}
+
+// 4) Build connection string
+var connectionString = $"Data Source={sqlitePath}";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString)
