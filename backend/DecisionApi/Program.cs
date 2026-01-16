@@ -93,10 +93,22 @@ app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
 
 app.MapGet("/ready", async (AppDbContext db) =>
 {
-    var canConnect = await db.Database.CanConnectAsync();
-    return canConnect
-        ? Results.Ok(new { status = "ready" })
-        : Results.Problem(title: "Database not reachable", statusCode: 503);
+    try
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        return canConnect
+            ? Results.Ok(new { status = "ready" })
+            : Results.Problem(title: "Database not reachable", statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "DB readiness failed. SqlitePath={SqlitePath}", sqlitePath);
+        return Results.Problem(
+            title: "Database not reachable",
+            detail: ex.Message,
+            statusCode: 503
+        );
+    }
 })
 .WithName("Ready");
 
