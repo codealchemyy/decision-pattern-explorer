@@ -91,6 +91,15 @@ app.MapGet("/weatherforecast", () =>
 app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
    .WithName("Health");
 
+app.MapGet("/version", () =>
+{
+    var sha = Environment.GetEnvironmentVariable("WEBSITE_COMMIT_ID")
+              ?? Environment.GetEnvironmentVariable("GITHUB_SHA")
+              ?? "unknown";
+    return Results.Ok(new { sha });
+});
+
+
 app.MapGet("/ready", async (AppDbContext db) =>
 {
     try
