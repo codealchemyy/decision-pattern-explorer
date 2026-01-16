@@ -91,23 +91,6 @@ app.MapGet("/weatherforecast", () =>
 app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
    .WithName("Health");
 
-app.MapGet("/version", () =>
-{
-    var sha = Environment.GetEnvironmentVariable("WEBSITE_COMMIT_ID")
-              ?? Environment.GetEnvironmentVariable("GITHUB_SHA")
-              ?? "unknown";
-
-    var fromConfig = builder.Configuration["Sqlite:Path"];
-    var fromEnv = Environment.GetEnvironmentVariable("Sqlite__Path");
-
-    return Results.Ok(new
-    {
-        sha,
-        sqlite_from_config = fromConfig,
-        sqlite_from_env = fromEnv
-    });
-});
-
 
 app.MapGet("/ready", async (AppDbContext db) =>
 {
