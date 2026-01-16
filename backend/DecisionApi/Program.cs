@@ -111,22 +111,10 @@ app.MapGet("/version", () =>
 
 app.MapGet("/ready", async (AppDbContext db) =>
 {
-    try
-    {
-        // Force an actual open attempt (SQLite will throw on permission/path issues)
-        await db.Database.OpenConnectionAsync();
-        await db.Database.CloseConnectionAsync();
-
-        return Results.Ok(new { status = "ready" });
-    }
-    catch (Exception ex)
-    {
-        return Results.Problem(
-            title: "Database exception",
-            detail: ex.ToString(),   // TEMP for Azure debugging
-            statusCode: 503
-        );
-    }
+    var canConnect = await db.Database.CanConnectAsync();
+    return canConnect
+        ? Results.Ok(new { status = "ready" })
+        : Results.Problem(title: "Database not reachable", statusCode: 503);
 })
 .WithName("Ready");
 
