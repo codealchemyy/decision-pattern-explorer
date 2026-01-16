@@ -120,10 +120,9 @@ app.MapGet("/ready", async (AppDbContext db) =>
     }
     catch (Exception ex)
     {
-        app.Logger.LogError(ex, "DB readiness failed. SqlitePath={SqlitePath}", sqlitePath);
         return Results.Problem(
-            title: "Database not reachable",
-            detail: ex.Message,
+            title: "Database exception",
+            detail: ex.ToString(),   // TEMP for Azure debugging
             statusCode: 503
         );
     }
