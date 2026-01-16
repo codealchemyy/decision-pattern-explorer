@@ -122,7 +122,7 @@ app.MapGet("/ready", async (AppDbContext db) =>
     {
         return Results.Problem(
             title: "Database exception",
-            detail: ex.ToString(),   // TEMP for Azure debugging
+            detail: ex.ToString(),
             statusCode: 503
         );
     }
