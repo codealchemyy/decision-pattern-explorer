@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using DecisionApi.Database;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -19,14 +22,48 @@ builder.Services.AddCors(options =>
 
 
 
+// --- Database (SQLite) ---
+var sqlitePath =
+    builder.Configuration["Sqlite:Path"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "data", "app.db");
+
+// 3) Ensure the folder exists (important for /home/data on Azure Linux)
+var sqliteDir = Path.GetDirectoryName(sqlitePath);
+if (!string.IsNullOrWhiteSpace(sqliteDir))
+{
+    Directory.CreateDirectory(sqliteDir);
+}
+
+// 4) Build connection string
+var connectionString = $"Data Source={sqlitePath}";
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(connectionString)
+           .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
+);
+
+
 var app = builder.Build();
+
+var seedEnabled = app.Environment.IsDevelopment()
+                  && builder.Configuration.GetValue<bool>("SeedData", true);
+if (seedEnabled)
+{
+    await SeedData.EnsureSeededAsync(app.Services);
+}
+
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 
 app.UseRouting();
 app.UseCors("Frontend");
@@ -54,8 +91,15 @@ app.MapGet("/weatherforecast", () =>
 app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
    .WithName("Health");
 
-app.MapGet("/ready", () => Results.Ok(new {status = "ready"}))
-   .WithName("Ready");
+app.MapGet("/ready", async (AppDbContext db) =>
+{
+    var canConnect = await db.Database.CanConnectAsync();
+    return canConnect
+        ? Results.Ok(new { status = "ready" })
+        : Results.Problem(title: "Database not reachable", statusCode: 503);
+})
+.WithName("Ready");
+
 
 app.Run();
 
