@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using DecisionApi.Database;
+using DecisionApi.Models;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +22,9 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
 
 
 
@@ -101,9 +107,67 @@ app.MapGet("/ready", async (AppDbContext db) =>
 })
 .WithName("Ready");
 
+app.MapPost("/auth/register", async (
+    RegisterRequest req,
+    AppDbContext db,
+    IPasswordHasher<User> hasher) =>
+{
+    // Minimal validation (MVP)
+    var errors = new Dictionary<string, string[]>();
+
+    if (string.IsNullOrWhiteSpace(req.Email))
+        errors["email"] = new[] { "Email is required." };
+
+    if (string.IsNullOrWhiteSpace(req.DisplayName))
+        errors["displayName"] = new[] { "DisplayName is required." };
+
+    if (string.IsNullOrWhiteSpace(req.Password) || req.Password.Length < 8)
+        errors["password"] = new[] { "Password must be at least 8 characters." };
+
+    if (errors.Count > 0)
+        return Results.ValidationProblem(errors);
+
+    var email = req.Email.Trim().ToLowerInvariant();
+    var displayName = req.DisplayName.Trim();
+
+    // Check email exists (fast check)
+    var exists = await db.Users.AnyAsync(u => u.Email.ToLower() == email);
+    if (exists)
+        return Results.Problem(title: "Email already exists", statusCode: StatusCodes.Status409Conflict);
+
+    var user = new User
+    {
+        Id = Guid.NewGuid(),
+        Email = email,
+        DisplayName = displayName,
+        CreatedAt = DateTime.UtcNow,
+        PasswordHash = "" // temporary, we overwrite it immediately next line
+    };
+
+    user.PasswordHash = hasher.HashPassword(user, req.Password);
+    
+
+    db.Users.Add(user);
+
+    try
+    {
+        await db.SaveChangesAsync();
+    }
+    catch (DbUpdateException)
+    {
+        // race condition protection (unique index wins)
+        return Results.Problem(title: "Email already exists", statusCode: StatusCodes.Status409Conflict);
+    }
+
+    return Results.Created($"/users/{user.Id}", new { user.Id, user.Email, user.DisplayName });
+})
+.WithName("AuthRegister");
+
+
 
 
 app.Run();
+record RegisterRequest(string Email, string DisplayName, string Password);
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
