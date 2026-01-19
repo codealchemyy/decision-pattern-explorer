@@ -1,5 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using DecisionApi.Dtos.Auth;
 using DecisionApi.Database;
 using DecisionApi.Models;
 
@@ -167,7 +173,6 @@ app.MapPost("/auth/register", async (
 
 
 app.Run();
-record RegisterRequest(string Email, string DisplayName, string Password);
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
