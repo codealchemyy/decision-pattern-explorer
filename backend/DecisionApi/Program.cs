@@ -34,6 +34,7 @@ builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 var sqlitePath =
     builder.Configuration["Sqlite:Path"]
     ?? Path.Combine(builder.Environment.ContentRootPath, "data", "app.db");
+    Console.WriteLine($"SQLite path: {sqlitePath}");
 
 // 3) Ensure the folder exists (important for /home/data on Azure Linux)
 var sqliteDir = Path.GetDirectoryName(sqlitePath);
@@ -54,6 +55,13 @@ builder.Services.AddJwtAuth(builder.Configuration);
 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 
 var seedEnabled = app.Environment.IsDevelopment()
                   && builder.Configuration.GetValue<bool>("SeedData", true);
