@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using DecisionApi.Database;
+using DecisionApi.Models;
+using DecisionApi.Endpoints.Auth;
+using DecisionApi.Extensions;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +24,9 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+
 
 
 
@@ -41,6 +49,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(connectionString)
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
+
+builder.Services.AddJwtAuth(builder.Configuration);
 
 
 var app = builder.Build();
@@ -67,6 +77,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseRouting();
 app.UseCors("Frontend");
+app.UseAuthentication();
+app.UseAuthorization();
+
 
 
 var summaries = new[]
@@ -74,19 +87,6 @@ var summaries = new[]
     "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
 };
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
 
 app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
    .WithName("Health");
@@ -100,6 +100,8 @@ app.MapGet("/ready", async (AppDbContext db) =>
         : Results.Problem(title: "Database not reachable", statusCode: 503);
 })
 .WithName("Ready");
+
+app.MapAuthEndpoints();
 
 
 
