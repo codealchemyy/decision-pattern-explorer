@@ -7,6 +7,8 @@ using System.Text;
 using DecisionApi.Database;
 using DecisionApi.Dtos.Auth;
 using DecisionApi.Models;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace DecisionApi.Endpoints.Auth;
 
@@ -18,10 +20,12 @@ public static class AuthEndpoints
 
         group.MapPost("/register", Register);
         group.MapPost("/login", Login);
+        group.MapGet("/me", Me).RequireAuthorization();
+
 
         return app;
     }
-    
+
     private static async Task<IResult> Register(
         RegisterRequest req,
         AppDbContext db,
@@ -127,4 +131,17 @@ public static class AuthEndpoints
 
         return Results.Ok(new { token = jwt });
     }
+
+    private static IResult Me(ClaimsPrincipal user)
+    {
+        var id = user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        var email = user.FindFirstValue(JwtRegisteredClaimNames.Email);
+        var displayName = user.FindFirstValue("displayName");
+
+        if (id is null || email is null)
+            return Results.Unauthorized();
+
+        return Results.Ok(new { id, email, displayName });
+    }
+
 }
