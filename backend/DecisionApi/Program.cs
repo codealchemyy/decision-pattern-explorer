@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using DecisionApi.Database;
 using DecisionApi.Models;
 using DecisionApi.Endpoints.Auth;
+using DecisionApi.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,6 +50,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
            .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
 );
 
+builder.Services.AddJwtAuth(builder.Configuration);
+
 
 var app = builder.Build();
 
@@ -74,6 +77,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseRouting();
 app.UseCors("Frontend");
+app.UseAuthentication();
+app.UseAuthorization();
+
 
 
 var summaries = new[]
