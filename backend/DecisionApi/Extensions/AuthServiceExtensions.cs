@@ -13,6 +13,24 @@ public static class AuthServiceExtensions
             {
                 var key = config["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key missing");
 
+                options.MapInboundClaims = false;
+               
+                if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development")
+                {
+                    options.IncludeErrorDetails = true;
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnAuthenticationFailed = ctx =>
+                        {
+                            Console.WriteLine("JWT auth failed: " + ctx.Exception.Message);
+                            return Task.CompletedTask;
+                        }
+                    };
+                }
+
+
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
