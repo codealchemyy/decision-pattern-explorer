@@ -4,6 +4,8 @@ using DecisionApi.Database;
 using DecisionApi.Models;
 using DecisionApi.Endpoints.Auth;
 using DecisionApi.Extensions;
+using DecisionApi.Endpoints.Decisions;
+using DecisionApi.Endpoints.Categories;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,8 +36,6 @@ builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 var sqlitePath =
     builder.Configuration["Sqlite:Path"]
     ?? Path.Combine(builder.Environment.ContentRootPath, "data", "app.db");
-    Console.WriteLine($"SQLite path: {sqlitePath}");
-Console.WriteLine($"SQLite path: {sqlitePath}");
 
 
 // 3) Ensure the folder exists (important for /home/data on Azure Linux)
@@ -62,7 +62,6 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
-    Console.WriteLine("DB migrated ✅");
 }
 
 
@@ -113,12 +112,10 @@ app.MapGet("/ready", async (AppDbContext db) =>
 .WithName("Ready");
 
 app.MapAuthEndpoints();
+app.MapDecisionEndpoints();
+app.MapCategoryEndpoints();
+
 
 
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
