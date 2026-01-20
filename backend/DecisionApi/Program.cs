@@ -7,6 +7,7 @@ using DecisionApi.Extensions;
 using DecisionApi.Endpoints.Decisions;
 using DecisionApi.Endpoints.Categories;
 using DecisionApi.Endpoints.CheckIns;
+using DecisionApi.Dtos.Decisions;
 
 
 var builder = WebApplication.CreateBuilder(args);
