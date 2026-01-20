@@ -16,4 +16,16 @@ public class AppDbContext : DbContext
     public DbSet<CommunityPost> CommunityPosts => Set<CommunityPost>();
     public DbSet<Comment> Comments => Set<Comment>();
 
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<CheckIn>()
+            .HasOne(c => c.Decision)
+            .WithMany()
+            .HasForeignKey(c => c.DecisionId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
+
 }

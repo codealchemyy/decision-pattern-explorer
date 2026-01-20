@@ -19,6 +19,9 @@ public static class DecisionEndpoints
         group.MapPost("/", CreateDecision);
         group.MapGet("/{id:guid}", GetById);
         group.MapGet("/{id:guid}/check-ins", GetCheckInsForDecision);
+        group.MapPatch("/{id:guid}", UpdateDecision);
+        group.MapDelete("/{id:guid}", DeleteDecision);
+
 
         /* group.MapPost("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
         group.MapGet("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
@@ -159,6 +162,95 @@ public static class DecisionEndpoints
                 ? Results.NotFound()
                 : Results.Ok(decision);
         }
+
+        private static async Task<IResult> UpdateDecision(
+            Guid id,
+            UpdateDecisionRequest req,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+
+            var decision = await db.Decisions
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+
+            if (decision is null)
+                return Results.NotFound();
+
+            // Validation (only for provided fields)
+            if (req.Title is not null && string.IsNullOrWhiteSpace(req.Title))
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["title"] = new[] { "Title cannot be empty." }
+                });
+
+            if (req.MoodBefore is not null && (req.MoodBefore < 1 || req.MoodBefore > 5))
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["moodBefore"] = new[] { "MoodBefore must be between 1 and 5." }
+                });
+
+            if (req.CategoryId is not null)
+            {
+                var exists = await db.Categories.AnyAsync(c => c.Id == req.CategoryId.Value);
+                if (!exists)
+                    return Results.Problem(title: "Category not found", statusCode: StatusCodes.Status404NotFound);
+
+                decision.CategoryId = req.CategoryId.Value;
+            }
+
+            if (req.Title is not null) decision.Title = req.Title.Trim();
+            if (req.Notes is not null) decision.Notes = req.Notes;
+            if (req.MoodBefore is not null) decision.MoodBefore = req.MoodBefore.Value;
+            if (req.Visibility is not null) decision.Visibility = req.Visibility.Value;
+
+            await db.SaveChangesAsync();
+
+            // Return updated shape like GET by id
+            var updated = await db.Decisions
+                .AsNoTracking()
+                .Where(d => d.Id == id && d.UserId == userId)
+                .Include(d => d.Category)
+                .Select(d => new
+                {
+                    d.Id,
+                    d.Title,
+                    d.Notes,
+                    d.MoodBefore,
+                    d.Visibility,
+                    d.CreatedAt,
+                    Category = d.Category == null ? null : new { d.Category.Id, d.Category.Name },
+                    LatestCheckInSummary = db.CheckIns
+                        .Where(c => c.DecisionId == d.Id && c.UserId == userId)
+                        .OrderByDescending(c => c.CreatedAt)
+                        .Select(c => new { c.MoodAfter, c.Note, c.CreatedAt })
+                        .FirstOrDefault()
+                })
+                .FirstAsync();
+
+            return Results.Ok(updated);
+        }
+
+        private static async Task<IResult> DeleteDecision(
+            Guid id,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+
+            var decision = await db.Decisions
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+
+            if (decision is null)
+                return Results.NotFound();
+
+            // Delete rule: allow delete even if shared publicly (we’ll handle community later)
+            db.Decisions.Remove(decision);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        }
+
 
 
         private static async Task<IResult> GetCheckInsForDecision(
