@@ -4,6 +4,7 @@ using DecisionApi.Database;
 using DecisionApi.Extensions;
 using Microsoft.EntityFrameworkCore;
 using DecisionApi.Dtos.Decisions;
+using DecisionApi.Dtos;
 
 
 namespace DecisionApi.Endpoints.Decisions;
@@ -22,10 +23,6 @@ public static class DecisionEndpoints
         group.MapPatch("/{id:guid}", UpdateDecision);
         group.MapDelete("/{id:guid}", DeleteDecision);
 
-
-        /* group.MapPost("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        group.MapGet("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        group.MapGet("/{id:guid}", (Guid id) => Results.StatusCode(StatusCodes.Status501NotImplemented));*/
         return app;
     }
         private static async Task<IResult> ListMine(AppDbContext db, ClaimsPrincipal user)
@@ -73,22 +70,22 @@ public static class DecisionEndpoints
         {
             var userId = user.GetUserId();
 
-            // Basic validation (minimal, but real)
-            if (string.IsNullOrWhiteSpace(req.Title))
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["title"] = new[] { "Title is required." }
-                });
-
-            if (req.MoodBefore is < 1 or > 5)
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["moodBefore"] = new[] { "MoodBefore must be between 1 and 5." }
-                });
-
             var categoryExists = await db.Categories.AnyAsync(c => c.Id == req.CategoryId);
             if (!categoryExists)
                 return Results.Problem(title: "Category not found", statusCode: StatusCodes.Status404NotFound);
+            
+            if (string.IsNullOrWhiteSpace(req.Title))
+                return ApiValidation.Problem(("title", "Title is required."));
+
+            if (req.Title.Length > ValidationConstants.DecisionTitleMax)
+                return ApiValidation.Problem(("title", $"Title must be at most {ValidationConstants.DecisionTitleMax} characters."));
+
+            if (req.MoodBefore is < ValidationConstants.MoodMin or > ValidationConstants.MoodMax)
+                return ApiValidation.Problem(("moodBefore", "MoodBefore must be between 1 and 5."));
+
+            if (req.Notes is not null && req.Notes.Length > ValidationConstants.DecisionNotesMax)
+                return ApiValidation.Problem(("notes", $"Notes must be at most {ValidationConstants.DecisionNotesMax} characters."));
+
 
             var decision = new Models.Decision
             {
@@ -177,30 +174,19 @@ public static class DecisionEndpoints
             if (decision is null)
                 return Results.NotFound();
 
-            // Validation
+            // validation (centralized)
             if (req.Title is not null && string.IsNullOrWhiteSpace(req.Title))
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["title"] = new[] { "Title cannot be empty." }
-                });
+                return ApiValidation.Problem(("title", "Title cannot be empty."));
 
-            if (req.Title is not null && req.Title.Length > 1000)
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["title"] = new[] { "Title must be at most 1000 characters." }
-                });
+            if (req.Title is not null && req.Title.Length > ValidationConstants.DecisionTitleMax)
+                return ApiValidation.Problem(("title", $"Title must be at most {ValidationConstants.DecisionTitleMax} characters."));
 
-            if (req.MoodBefore is not null && (req.MoodBefore < 1 || req.MoodBefore > 5))
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["moodBefore"] = new[] { "MoodBefore must be between 1 and 5." }
-                });
+            if (req.MoodBefore is not null && (req.MoodBefore is < ValidationConstants.MoodMin or > ValidationConstants.MoodMax))
+                return ApiValidation.Problem(("moodBefore", $"MoodBefore must be between {ValidationConstants.MoodMin} and {ValidationConstants.MoodMax}."));
 
-            if (req.Notes is not null && req.Notes.Length > 2000)
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["notes"] = new[] { "Notes must be at most 2000 characters." }
-                });
+            if (req.Notes is not null && req.Notes.Length > ValidationConstants.DecisionNotesMax)
+                return ApiValidation.Problem(("notes", $"Notes must be at most {ValidationConstants.DecisionNotesMax} characters."));
+
 
             // Apply
             if (req.CategoryId is not null)
@@ -284,6 +270,7 @@ public static class DecisionEndpoints
             if (!ownsDecision)
                 return Results.NotFound();
 
+           
             var checkIns = await db.CheckIns
                 .AsNoTracking()
                 .Where(c => c.DecisionId == id && c.UserId == userId)
