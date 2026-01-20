@@ -7,6 +7,10 @@ using DecisionApi.Extensions;
 using DecisionApi.Endpoints.Decisions;
 using DecisionApi.Endpoints.Categories;
 using DecisionApi.Endpoints.CheckIns;
+using DecisionApi.Dtos.Decisions;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -56,6 +60,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddJwtAuth(builder.Configuration);
 
+builder.Services.AddProblemDetails();
+
 
 var app = builder.Build();
 
@@ -72,6 +78,24 @@ if (seedEnabled)
 {
     await SeedData.EnsureSeededAsync(app.Services);
 }
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerFeature>();
+        var ex = feature?.Error;
+
+        var result = Results.Problem(
+            title: "An unexpected error occurred.",
+            detail: app.Environment.IsDevelopment() ? ex?.Message : null,
+            statusCode: StatusCodes.Status500InternalServerError,
+            type: "https://tools.ietf.org/html/rfc9110#section-15.6.1"
+        );
+
+        await result.ExecuteAsync(context);
+    });
+});
 
 
 if (app.Environment.IsDevelopment())
@@ -102,6 +126,10 @@ var summaries = new[]
 app.MapGet("/health", () => Results.Ok(new {status = "ok"}))
    .WithName("Health");
 
+app.MapGet("/boom", () =>
+{
+    throw new Exception("Boom!");
+}).WithName("Boom");
 
 app.MapGet("/ready", async (AppDbContext db) =>
 {
@@ -112,10 +140,14 @@ app.MapGet("/ready", async (AppDbContext db) =>
 })
 .WithName("Ready");
 
+
+
 app.MapAuthEndpoints();
 app.MapDecisionEndpoints();
 app.MapCategoryEndpoints();
 app.MapCheckInEndpoints();
+
+
 
 
 

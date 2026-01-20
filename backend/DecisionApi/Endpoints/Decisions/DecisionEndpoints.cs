@@ -4,6 +4,7 @@ using DecisionApi.Database;
 using DecisionApi.Extensions;
 using Microsoft.EntityFrameworkCore;
 using DecisionApi.Dtos.Decisions;
+using DecisionApi.Dtos;
 
 
 namespace DecisionApi.Endpoints.Decisions;
@@ -19,10 +20,9 @@ public static class DecisionEndpoints
         group.MapPost("/", CreateDecision);
         group.MapGet("/{id:guid}", GetById);
         group.MapGet("/{id:guid}/check-ins", GetCheckInsForDecision);
+        group.MapPatch("/{id:guid}", UpdateDecision);
+        group.MapDelete("/{id:guid}", DeleteDecision);
 
-        /* group.MapPost("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        group.MapGet("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
-        group.MapGet("/{id:guid}", (Guid id) => Results.StatusCode(StatusCodes.Status501NotImplemented));*/
         return app;
     }
         private static async Task<IResult> ListMine(AppDbContext db, ClaimsPrincipal user)
@@ -70,22 +70,22 @@ public static class DecisionEndpoints
         {
             var userId = user.GetUserId();
 
-            // Basic validation (minimal, but real)
-            if (string.IsNullOrWhiteSpace(req.Title))
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["title"] = new[] { "Title is required." }
-                });
-
-            if (req.MoodBefore is < 1 or > 5)
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    ["moodBefore"] = new[] { "MoodBefore must be between 1 and 5." }
-                });
-
             var categoryExists = await db.Categories.AnyAsync(c => c.Id == req.CategoryId);
             if (!categoryExists)
                 return Results.Problem(title: "Category not found", statusCode: StatusCodes.Status404NotFound);
+            
+            if (string.IsNullOrWhiteSpace(req.Title))
+                return ApiValidation.Problem(("title", "Title is required."));
+
+            if (req.Title.Length > ValidationConstants.DecisionTitleMax)
+                return ApiValidation.Problem(("title", $"Title must be at most {ValidationConstants.DecisionTitleMax} characters."));
+
+            if (req.MoodBefore is < ValidationConstants.MoodMin or > ValidationConstants.MoodMax)
+                return ApiValidation.Problem(("moodBefore", "MoodBefore must be between 1 and 5."));
+
+            if (req.Notes is not null && req.Notes.Length > ValidationConstants.DecisionNotesMax)
+                return ApiValidation.Problem(("notes", $"Notes must be at most {ValidationConstants.DecisionNotesMax} characters."));
+
 
             var decision = new Models.Decision
             {
@@ -160,6 +160,100 @@ public static class DecisionEndpoints
                 : Results.Ok(decision);
         }
 
+        private static async Task<IResult> UpdateDecision(
+            Guid id,
+            UpdateDecisionRequest req,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+
+            var decision = await db.Decisions
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+
+            if (decision is null)
+                return Results.NotFound();
+
+            // validation (centralized)
+            if (req.Title is not null && string.IsNullOrWhiteSpace(req.Title))
+                return ApiValidation.Problem(("title", "Title cannot be empty."));
+
+            if (req.Title is not null && req.Title.Length > ValidationConstants.DecisionTitleMax)
+                return ApiValidation.Problem(("title", $"Title must be at most {ValidationConstants.DecisionTitleMax} characters."));
+
+            if (req.MoodBefore is not null && (req.MoodBefore is < ValidationConstants.MoodMin or > ValidationConstants.MoodMax))
+                return ApiValidation.Problem(("moodBefore", $"MoodBefore must be between {ValidationConstants.MoodMin} and {ValidationConstants.MoodMax}."));
+
+            if (req.Notes is not null && req.Notes.Length > ValidationConstants.DecisionNotesMax)
+                return ApiValidation.Problem(("notes", $"Notes must be at most {ValidationConstants.DecisionNotesMax} characters."));
+
+
+            // Apply
+            if (req.CategoryId is not null)
+            {
+                var exists = await db.Categories.AnyAsync(c => c.Id == req.CategoryId.Value);
+                if (!exists)
+                    return Results.Problem(title: "Category not found", statusCode: StatusCodes.Status404NotFound);
+
+                decision.CategoryId = req.CategoryId.Value;
+            }
+
+            if (req.Title is not null) decision.Title = req.Title.Trim();
+            if (req.MoodBefore is not null) decision.MoodBefore = req.MoodBefore.Value;
+            if (req.Visibility is not null) decision.Visibility = req.Visibility.Value;
+
+            // allow clearing notes via empty string
+            if (req.Notes is not null)
+                decision.Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes;
+
+            await db.SaveChangesAsync();
+
+            // Return updated shape like GET by id
+            var updated = await db.Decisions
+                .AsNoTracking()
+                .Where(d => d.Id == id && d.UserId == userId)
+                .Include(d => d.Category)
+                .Select(d => new
+                {
+                    d.Id,
+                    d.Title,
+                    d.Notes,
+                    d.MoodBefore,
+                    d.Visibility,
+                    d.CreatedAt,
+                    Category = d.Category == null ? null : new { d.Category.Id, d.Category.Name },
+                    LatestCheckInSummary = db.CheckIns
+                        .Where(c => c.DecisionId == d.Id && c.UserId == userId)
+                        .OrderByDescending(c => c.CreatedAt)
+                        .Select(c => new { c.MoodAfter, c.Note, c.CreatedAt })
+                        .FirstOrDefault()
+                })
+                .FirstAsync();
+
+            return Results.Ok(updated);
+        }
+
+        private static async Task<IResult> DeleteDecision(
+            Guid id,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+
+            var decision = await db.Decisions
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+
+            if (decision is null)
+                return Results.NotFound();
+
+            // Delete rule: allow delete even if shared publicly (we’ll handle community later)
+            db.Decisions.Remove(decision);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        }
+
+
 
         private static async Task<IResult> GetCheckInsForDecision(
             Guid id,
@@ -176,6 +270,7 @@ public static class DecisionEndpoints
             if (!ownsDecision)
                 return Results.NotFound();
 
+           
             var checkIns = await db.CheckIns
                 .AsNoTracking()
                 .Where(c => c.DecisionId == id && c.UserId == userId)

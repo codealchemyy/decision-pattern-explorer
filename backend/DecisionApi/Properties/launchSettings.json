@@ -18,6 +18,19 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
+    },
+    "ProductionLocal": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "Jwt__Key": "PUT_A_LONG_RANDOM_SECRET_HERE",
+        "Jwt__Issuer": "DecisionApi",
+        "Jwt__Audience": "DecisionApi",
+        "Jwt__ExpiresMinutes": "60"
+      }
     }
   }
 }
