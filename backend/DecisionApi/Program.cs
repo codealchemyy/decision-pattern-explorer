@@ -6,6 +6,7 @@ using DecisionApi.Endpoints.Auth;
 using DecisionApi.Extensions;
 using DecisionApi.Endpoints.Decisions;
 using DecisionApi.Endpoints.Categories;
+using DecisionApi.Endpoints.CheckIns;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -114,7 +115,7 @@ app.MapGet("/ready", async (AppDbContext db) =>
 app.MapAuthEndpoints();
 app.MapDecisionEndpoints();
 app.MapCategoryEndpoints();
-
+app.MapCheckInEndpoints();
 
 
 

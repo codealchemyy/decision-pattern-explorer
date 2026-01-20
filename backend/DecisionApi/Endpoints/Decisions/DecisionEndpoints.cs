@@ -18,6 +18,7 @@ public static class DecisionEndpoints
         group.MapGet("/", ListMine);
         group.MapPost("/", CreateDecision);
         group.MapGet("/{id:guid}", GetById);
+        group.MapGet("/{id:guid}/check-ins", GetCheckInsForDecision);
 
         /* group.MapPost("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
         group.MapGet("/", () => Results.StatusCode(StatusCodes.Status501NotImplemented));
@@ -104,6 +105,7 @@ public static class DecisionEndpoints
             var created = await db.Decisions
                 .AsNoTracking()
                 .Where(d => d.Id == decision.Id && d.UserId == userId)
+                .Include(d => d.Category)
                 .Select(d => new
                 {
                     d.Id,
@@ -156,6 +158,38 @@ public static class DecisionEndpoints
             return decision is null
                 ? Results.NotFound()
                 : Results.Ok(decision);
+        }
+
+
+        private static async Task<IResult> GetCheckInsForDecision(
+            Guid id,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+
+            // owner-only check (again hide others)
+            var ownsDecision = await db.Decisions
+                .AsNoTracking()
+                .AnyAsync(d => d.Id == id && d.UserId == userId);
+
+            if (!ownsDecision)
+                return Results.NotFound();
+
+            var checkIns = await db.CheckIns
+                .AsNoTracking()
+                .Where(c => c.DecisionId == id && c.UserId == userId)
+                .OrderByDescending(c => c.CreatedAt)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.MoodAfter,
+                    c.Note,
+                    c.CreatedAt
+                })
+                .ToListAsync();
+
+            return Results.Ok(checkIns);
         }
 
 
