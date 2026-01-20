@@ -3,6 +3,7 @@ using DecisionApi.Database;
 using DecisionApi.Dtos.CheckIns;
 using DecisionApi.Extensions;
 using Microsoft.EntityFrameworkCore;
+using DecisionApi.Dtos;
 
 namespace DecisionApi.Endpoints.CheckIns;
 
@@ -26,17 +27,12 @@ public static class CheckInEndpoints
         var userId = user.GetUserId();
 
         // validation
-        if (req.MoodAfter is < 1 or > 5)
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["moodAfter"] = new[] { "MoodAfter must be between 1 and 5." }
-            });
+        if (req.MoodAfter is < ValidationConstants.MoodMin or > ValidationConstants.MoodMax)
+            return ApiValidation.Problem(("moodAfter", $"MoodAfter must be between {ValidationConstants.MoodMin} and {ValidationConstants.MoodMax}."));
 
-        if (req.Note is not null && req.Note.Length > 500)
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                ["note"] = new[] { "Note must be at most 500 characters." }
-            });
+        if (req.Note is not null && req.Note.Length > ValidationConstants.CheckInNoteMax)
+            return ApiValidation.Problem(("note", $"Note must be at most {ValidationConstants.CheckInNoteMax} characters."));
+
 
         // owner-only: ensure the decision belongs to this user
         var decision = await db.Decisions
@@ -66,7 +62,7 @@ public static class CheckInEndpoints
             checkIn.Note,
             checkIn.CreatedAt
         };
-
         return Results.Created($"/decisions/{req.DecisionId}/check-ins", created);
+
     }
 }

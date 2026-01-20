@@ -57,6 +57,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddJwtAuth(builder.Configuration);
 
+builder.Services.AddProblemDetails();
+
 
 var app = builder.Build();
 
@@ -91,6 +93,7 @@ app.UseRouting();
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseExceptionHandler();
 
 
 
