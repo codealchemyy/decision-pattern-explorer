@@ -31,6 +31,7 @@ public static class DecisionEndpoints
             var decisions = await db.Decisions
                 .AsNoTracking()
                 .Where(d => d.UserId == userId)
+                .Include(d => d.Category)
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new
                 {
@@ -112,7 +113,12 @@ public static class DecisionEndpoints
                     d.Visibility,
                     d.CreatedAt,
                     Category = d.Category == null ? null : new { d.Category.Id, d.Category.Name },
-                    LatestCheckInSummary = (object?)null
+                    LatestCheckInSummary = db.CheckIns
+                        .Where(c => c.DecisionId == d.Id && c.UserId == userId)
+                        .OrderByDescending(c => c.CreatedAt)
+                        .Select(c => new { c.MoodAfter, c.Note, c.CreatedAt })
+                        .FirstOrDefault()
+
                 })
                 .FirstAsync();
 
@@ -129,6 +135,7 @@ public static class DecisionEndpoints
             var decision = await db.Decisions
                 .AsNoTracking()
                 .Where(d => d.Id == id && d.UserId == userId)
+                .Include(d => d.Category)
                 .Select(d => new
                 {
                     d.Id,
