@@ -177,11 +177,17 @@ public static class DecisionEndpoints
             if (decision is null)
                 return Results.NotFound();
 
-            // Validation (only for provided fields)
+            // Validation
             if (req.Title is not null && string.IsNullOrWhiteSpace(req.Title))
                 return Results.ValidationProblem(new Dictionary<string, string[]>
                 {
                     ["title"] = new[] { "Title cannot be empty." }
+                });
+
+            if (req.Title is not null && req.Title.Length > 1000)
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["title"] = new[] { "Title must be at most 1000 characters." }
                 });
 
             if (req.MoodBefore is not null && (req.MoodBefore < 1 || req.MoodBefore > 5))
@@ -190,6 +196,13 @@ public static class DecisionEndpoints
                     ["moodBefore"] = new[] { "MoodBefore must be between 1 and 5." }
                 });
 
+            if (req.Notes is not null && req.Notes.Length > 2000)
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["notes"] = new[] { "Notes must be at most 2000 characters." }
+                });
+
+            // Apply
             if (req.CategoryId is not null)
             {
                 var exists = await db.Categories.AnyAsync(c => c.Id == req.CategoryId.Value);
@@ -200,9 +213,12 @@ public static class DecisionEndpoints
             }
 
             if (req.Title is not null) decision.Title = req.Title.Trim();
-            if (req.Notes is not null) decision.Notes = req.Notes;
             if (req.MoodBefore is not null) decision.MoodBefore = req.MoodBefore.Value;
             if (req.Visibility is not null) decision.Visibility = req.Visibility.Value;
+
+            // allow clearing notes via empty string
+            if (req.Notes is not null)
+                decision.Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes;
 
             await db.SaveChangesAsync();
 
