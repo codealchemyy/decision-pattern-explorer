@@ -25,6 +25,11 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(c => c.DecisionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CommunityPost>()
+            .HasIndex(p => p.DecisionId)
+            .IsUnique();
+
     }
 
 

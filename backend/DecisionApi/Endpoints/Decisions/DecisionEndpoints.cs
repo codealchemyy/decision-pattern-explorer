@@ -22,6 +22,8 @@ public static class DecisionEndpoints
         group.MapGet("/{id:guid}/check-ins", GetCheckInsForDecision);
         group.MapPatch("/{id:guid}", UpdateDecision).RequireRateLimiting("writes");
         group.MapDelete("/{id:guid}", DeleteDecision).RequireRateLimiting("writes");
+        group.MapPatch("/{id:guid}/visibility", UpdateVisibility).RequireRateLimiting("writes");
+
         
 
         return app;
@@ -201,13 +203,38 @@ public static class DecisionEndpoints
 
             if (req.Title is not null) decision.Title = req.Title.Trim();
             if (req.MoodBefore is not null) decision.MoodBefore = req.MoodBefore.Value;
-            if (req.Visibility is not null) decision.Visibility = req.Visibility.Value;
+            //if (req.Visibility is not null) decision.Visibility = req.Visibility.Value;
 
             // allow clearing notes via empty string
             if (req.Notes is not null)
                 decision.Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes;
 
             await db.SaveChangesAsync();
+
+            // keep community post snapshot in sync (only if a post exists)
+            var post = await db.CommunityPosts.FirstOrDefaultAsync(p => p.DecisionId == decision.Id);
+
+            if (post is not null)
+            {
+                // If the decision is private, remove the post (extra safety)
+                if (decision.Visibility == Models.DecisionVisibility.Private)
+                {
+                    db.CommunityPosts.Remove(post);
+                }
+                else
+                {
+                    // Otherwise just sync snapshot fields
+                    post.Title = decision.Title;
+                    post.CategoryId = decision.CategoryId;
+                    post.Visibility = decision.Visibility;
+
+                    // AuthorDisplayName is owned by UpdateVisibility (single source of truth)
+                    // so we DON'T set it here.
+                }
+
+                await db.SaveChangesAsync();
+            }
+
 
             // Return updated shape like GET by id
             var updated = await db.Decisions
@@ -287,6 +314,84 @@ public static class DecisionEndpoints
 
             return Results.Ok(checkIns);
         }
+
+
+        private static async Task<IResult> UpdateVisibility(
+            Guid id,
+            UpdateDecisionVisibilityRequest req,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+            
+            if (!Enum.IsDefined(typeof(Models.DecisionVisibility), req.Visibility))
+            return ApiValidation.Problem(("visibility", "Invalid visibility value."));
+
+            var decision = await db.Decisions
+                .Include(d => d.User)
+                .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
+            
+
+            if (decision is null)
+                return Results.NotFound();
+
+            decision.Visibility = req.Visibility;
+            await db.SaveChangesAsync();
+
+            // If Private -> remove post (so it cannot appear in feed)
+            if (decision.Visibility == Models.DecisionVisibility.Private)
+            {
+                var existing = await db.CommunityPosts
+                    .FirstOrDefaultAsync(p => p.DecisionId == decision.Id);
+
+                if (existing is not null)
+                {
+                    db.CommunityPosts.Remove(existing);
+                    await db.SaveChangesAsync();
+                }
+
+                return Results.NoContent();
+            }
+
+            // Anonymous/PublicNickname -> upsert post (1 decision = 1 post)
+            var post = await db.CommunityPosts
+                .FirstOrDefaultAsync(p => p.DecisionId == decision.Id);
+
+            if (post is null)
+            {
+                post = new Models.CommunityPost
+                {
+                    DecisionId = decision.Id,
+                    CategoryId = decision.CategoryId,
+                    Title = decision.Title,
+                    Visibility = decision.Visibility,
+                    CreatedAt = DateTime.UtcNow,
+                    AuthorDisplayName = decision.Visibility == Models.DecisionVisibility.PublicNickname
+                        ? decision.User?.DisplayName
+                        : null
+                };
+
+                db.CommunityPosts.Add(post);
+            }
+            else
+            {
+                post.CategoryId = decision.CategoryId;
+                post.Title = decision.Title;
+                post.Visibility = decision.Visibility;
+                post.AuthorDisplayName = decision.Visibility == Models.DecisionVisibility.PublicNickname
+                    ? decision.User?.DisplayName
+                    : null;
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                decision.Id,
+                decision.Visibility
+            });
+        }
+
 
 
 
