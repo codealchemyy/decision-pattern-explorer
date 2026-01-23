@@ -9,4 +9,8 @@ public static class ValidationConstants
     public const int DecisionNotesMax = 2000;
 
     public const int CheckInNoteMax = 500;
+    public const int CommentTextMax = 500;
+
+    public const int CommentBodyMax = 500;
+
 }
