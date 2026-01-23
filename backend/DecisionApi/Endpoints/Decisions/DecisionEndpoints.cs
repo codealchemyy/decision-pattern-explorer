@@ -17,11 +17,12 @@ public static class DecisionEndpoints
                        .RequireAuthorization(); // 🔒 all decision routes require JWT
 
         group.MapGet("/", ListMine);
-        group.MapPost("/", CreateDecision);
+        group.MapPost("/", CreateDecision).RequireRateLimiting("writes");
         group.MapGet("/{id:guid}", GetById);
         group.MapGet("/{id:guid}/check-ins", GetCheckInsForDecision);
-        group.MapPatch("/{id:guid}", UpdateDecision);
-        group.MapDelete("/{id:guid}", DeleteDecision);
+        group.MapPatch("/{id:guid}", UpdateDecision).RequireRateLimiting("writes");
+        group.MapDelete("/{id:guid}", DeleteDecision).RequireRateLimiting("writes");
+        
 
         return app;
     }

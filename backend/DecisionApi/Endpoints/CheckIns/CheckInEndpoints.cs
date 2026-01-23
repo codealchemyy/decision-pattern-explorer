@@ -14,7 +14,8 @@ public static class CheckInEndpoints
         var group = app.MapGroup("/check-ins")
             .RequireAuthorization();
 
-        group.MapPost("/", AddCheckIn);
+        group.MapPost("/", AddCheckIn).RequireRateLimiting("writes");
+
 
         return app;
     }
