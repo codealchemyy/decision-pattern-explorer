@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
+using DecisionApi.Endpoints.Community;
+
 
 
 
@@ -236,6 +238,7 @@ app.MapAuthEndpoints();
 app.MapDecisionEndpoints();
 app.MapCategoryEndpoints();
 app.MapCheckInEndpoints();
+app.MapCommunityEndpoints();
 
 
 
