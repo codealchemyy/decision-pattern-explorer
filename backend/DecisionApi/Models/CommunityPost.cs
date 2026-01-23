@@ -17,4 +17,6 @@ public class CommunityPost
     public DecisionVisibility Visibility { get; set; } = DecisionVisibility.Anonymous;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? AuthorDisplayName { get; set; } // only set for Public posts
+
 }

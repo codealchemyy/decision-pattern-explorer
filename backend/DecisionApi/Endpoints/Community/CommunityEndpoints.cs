@@ -50,6 +50,7 @@ public static class CommunityEndpoints
                 p.Title,
                 p.Visibility,
                 p.CreatedAt,
+                AuthorDisplayName = p.Visibility == Models.DecisionVisibility.PublicNickname ? p.AuthorDisplayName : null,
                 Category = p.Category == null ? null : new { p.Category.Id, p.Category.Name }
             })
             .ToListAsync();
