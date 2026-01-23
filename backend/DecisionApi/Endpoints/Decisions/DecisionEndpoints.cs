@@ -18,6 +18,7 @@ public static class DecisionEndpoints
 
         group.MapGet("/", ListMine);
         group.MapPost("/", CreateDecision).RequireRateLimiting("writes");
+        group.MapPost("/{id:guid}/check-ins", AddCheckIn).RequireRateLimiting("writes");
         group.MapGet("/{id:guid}", GetById);
         group.MapGet("/{id:guid}/check-ins", GetCheckInsForDecision);
         group.MapPatch("/{id:guid}", UpdateDecision).RequireRateLimiting("writes");
@@ -391,6 +392,51 @@ public static class DecisionEndpoints
                 decision.Visibility
             });
         }
+
+
+        private static async Task<IResult> AddCheckIn(
+            Guid id,
+            CreateCheckInRequest req,
+            AppDbContext db,
+            ClaimsPrincipal user)
+        {
+            var userId = user.GetUserId();
+
+            // owner-only (hide existence)
+            var ownsDecision = await db.Decisions
+                .AsNoTracking()
+                .AnyAsync(d => d.Id == id && d.UserId == userId);
+
+            if (!ownsDecision)
+                return Results.NotFound();
+
+            if (req.MoodAfter is < ValidationConstants.MoodMin or > ValidationConstants.MoodMax)
+                return ApiValidation.Problem(("moodAfter", $"MoodAfter must be between {ValidationConstants.MoodMin} and {ValidationConstants.MoodMax}."));
+
+            if (req.Note is not null && req.Note.Length > ValidationConstants.CheckInNoteMax)
+                return ApiValidation.Problem(("note", $"Note must be at most {ValidationConstants.CheckInNoteMax} characters."));
+
+            var checkIn = new Models.CheckIn
+            {
+                DecisionId = id,
+                UserId = userId,
+                MoodAfter = req.MoodAfter,
+                Note = string.IsNullOrWhiteSpace(req.Note) ? null : req.Note.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            db.CheckIns.Add(checkIn);
+            await db.SaveChangesAsync();
+
+            return Results.Created($"/decisions/{id}/check-ins/{checkIn.Id}", new
+            {
+                checkIn.Id,
+                checkIn.MoodAfter,
+                Note = checkIn.Note,
+                checkIn.CreatedAt
+            });
+        }
+
 
 
 
