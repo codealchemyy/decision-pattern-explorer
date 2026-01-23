@@ -29,6 +29,19 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CommunityPost>()
             .HasIndex(p => p.DecisionId)
             .IsUnique();
+        
+        modelBuilder.Entity<Comment>()
+            .HasOne(c => c.CommunityPost)
+            .WithMany()
+            .HasForeignKey(c => c.CommunityPostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Comment>()
+            .HasOne(c => c.User)
+            .WithMany()
+            .HasForeignKey(c => c.UserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
 
     }
 
