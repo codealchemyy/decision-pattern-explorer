@@ -1,73 +1,35 @@
-/* import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
-
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
-
-export default App
- */
-
-
-import { useEffect, useState } from "react";
-import "./App.css";
-
-type Health = { status: string };
+import { Link, Route, Routes } from "react-router-dom";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import NewDecisionPage from "./pages/NewDecisionPage";
+import DecisionDetailPage from "./pages/DecisionDetailPage";
+import CommunityPage from "./pages/CommunityPage";
+import PostDetailPage from "./pages/PostDetailPage";
 
 export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL as string;
-
-    fetch(`${baseUrl}/health`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return (await res.json()) as Health;
-      })
-      .then(setHealth)
-      .catch((e) => setError(String(e.message ?? e)));
-  }, []);
-
   return (
     <div style={{ padding: 24 }}>
       <h1>Decision Pattern Explorer</h1>
 
-      <h2>Backend connection</h2>
+      <nav style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+        <Link to="/login">Login</Link>
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/decisions/new">New decision</Link>
+        <Link to="/decisions/1">Decision #1</Link>
+        <Link to="/community">Community</Link>
+        <Link to="/community/posts/1">Post #1</Link>
+      </nav>
 
-      {error && <p style={{ color: "crimson" }}>Error: {error}</p>}
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/decisions/new" element={<NewDecisionPage />} />
+        <Route path="/decisions/:id" element={<DecisionDetailPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/community/posts/:postId" element={<PostDetailPage />} />
 
-      {!error && !health && <p>Checking backend…</p>}
-
-      {health && <p>Backend says: {health.status}</p>}
+        <Route path="*" element={<DashboardPage />} />
+      </Routes>
     </div>
   );
 }
